@@ -266,10 +266,9 @@ Overfitting remained solved, but performance slightly regressed compared to Exp 
 | 3 | 4-class merge | 4 | 0.451 | 0.49 | 0.451 | Key turning point |
 | 4 | Skip connections | 4 | 0.477 | 0.52 | 0.487 | |
 | 5 | Reduced dropout | 4 | 0.497 | 0.52 | 0.485 | |
-| 6 | Cosine annealing | 4 | — | — | — | - |
-| 7 | EfficientNet-B0 | 4 | 0.51 | 0.53 | 0.49 | Best so far, overfitting |
-| 8 | EfficientNet-B0 + frozen layers + pitch shift | 4 | 0.5106 | 0.536 | **0.502** | **Final model** — Overfitting solved |
-| 9 | EfficientNet-B0 + manual weights | 4 | 0.503 | 0.504 | 0.478 | Didn't outperform Exp 8 |
+| 6 | EfficientNet-B0 | 4 | 0.51 | 0.53 | 0.49 | Best so far, overfitting |
+| 7 | EfficientNet-B0 + frozen layers + pitch shift | 4 | 0.5106 | 0.536 | **0.502** | **Final model** — Overfitting solved |
+| 8 | EfficientNet-B0 + manual weights | 4 | 0.503 | 0.504 | 0.478 | Didn't outperform Exp 7 |
 
 ## 6. Conclusions & Future Work
 
