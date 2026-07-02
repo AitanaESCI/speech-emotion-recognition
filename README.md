@@ -7,7 +7,8 @@
 **Supervisor**: Pol Caselles
 
 ## 🔗 Demo
-[Hugging Face Space](https://huggingface.co/spaces/aitanadiaz/speech-emotion-recognition) — try the live demo
+- [Hugging Face Space](https://huggingface.co/spaces/aitanadiaz/speech-emotion-recognition) — try the live demo
+- [Emo Tuning - Labeling Tool](https://upc-emo-tuning.pages.dev/)
 
 ## 📋 Table of Contents
 1. [Motivation](#1-motivation)
@@ -39,38 +40,54 @@ Full architectural details and iterations are documented experiment-by-experimen
 - Original 9 emotion labels merged into 4 balanced classes: Anger, Happiness, Sadness, Neutral
 - Speaker-independent train/validation/test split by session, to prevent speaker leakage and ensure the model generalizes to unseen voices
 
-**Computational Requirements**
+**Computational Requirements** (TODO review)
 - Feature extraction: log-mel spectrograms (n_mels=80, n_fft=1024, hop_length=160, win_length=400)
 - Training: single GPU (Google Colab), experiments ranging from 30 to 100 epochs depending on architecture
 - Experiment tracking: [Weights & Biases](https://wandb.ai/)
 
 ## 3. Setup & Reproducibility
 
-### Installation
-```bash
-pip install git+https://github.com/gofordiego/nbdev-upc-aidl-iemocap-datasets.git
-pip install torch torchvision wandb scikit-learn matplotlib
-```
-
-### Running the pipeline
-1. Clone this repository
-2. Open the notebook(s) in `notebooks/` (Google Colab recommended)
-3. Authenticate with Weights & Biases: `wandb login`
-4. Run cells in order — dataset loading → model definition → training → evaluation
-
 ### Repository Structure
 ```
-├── notebooks/
-│   ├── exp1_baseline.ipynb
-│   ├── exp4_skip_connections.ipynb
-│   ├── exp8_efficientnet.ipynb
-│   └── ...
-├── app/      # Hugging Face demo app
-├── README.md
-└── requirements.txt
+├── demo-apps/
+│   ├── (TODO)  # Hugging Face demo app
+│   └── emo_tuning/  # Data labeling tool
+│
+└── train-cli/
+    ├── models/  # Experiments models
+    ├── train.py
+    └── README.md  # Train CLI instructions.
 ```
 
-### Reproducing our best model
+### Train CLI tool
+
+We developed a command line interface (CLI) tool to train our models. The tool is built using the uv package manager and allowed us to train our models with different configurations.
+
+We kept track of our experiments on [Weights & Biases](https://wandb.ai/). Additionally we included an option to run our experiments in detached execution mode using [Modal](https://modal.com/) to take advantage of their remote GPU resources.
+
+> [!TIP]
+> See more details about these tools in our [Train CLI - README](train-cli/README.md).
+
+#### Installation
+```bash
+cd train-cli/
+# Requires uv package manager: https://docs.astral.sh/uv/
+uv sync
+```
+
+#### Running experiments
+
+Example of using our CLI tool to train a `cnn_lstm` model for 50 epochs with:
+- Dropout rate of 0.1
+- Pitch shift augmentation probability of 0.3
+- [SpecAugment](https://research.google/blog/specaugment-a-new-data-augmentation-method-for-automatic-speech-recognition/) enabled
+
+```bash
+cd train-cli/
+uv run python train.py --model-name cnn_lstm --epochs 50 --dropout 0.1 --pitch-shift-prob 0.3 --enable-spec-augment
+```
+
+### Reproducing our best model (TODO - review)
 Our final selected model is **Experiment 8** (EfficientNet-B0, frozen layers, dropout 0.5, pitch shift augmentation) — see [Section 4](#4-experiments) for full configuration.
 
 ## 4. Experiments

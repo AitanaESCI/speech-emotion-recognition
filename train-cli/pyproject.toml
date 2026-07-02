@@ -1,0 +1,36 @@
+[project]
+name = "diego"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.4.1",
+    "dotenv>=0.9.9",
+    "modal>=1.5.1",
+    "nbdev-upc-aidl-iemocap-datasets",
+    "sentence-transformers>=5.6.0",
+    "soundfile",
+    "wandb>=0.27.2",
+]
+
+[tool.uv.sources]
+nbdev-upc-aidl-iemocap-datasets = { git = "https://github.com/gofordiego/nbdev-upc-aidl-iemocap-datasets.git" }
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.3.0",
+    "ipython>=9.14.1",
+    "seaborn>=0.13.2",
+]
+
+[tool.black]
+line-length = 150
+
+[tool.pyright]
+typeCheckingMode = "basic"
+
+[tool.isort]
+profile = "black"
+lines_after_imports = 2
+line_length = 150
