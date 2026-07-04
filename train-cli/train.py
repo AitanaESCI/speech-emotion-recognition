@@ -24,6 +24,7 @@ from models.cnn_rnn import CNNGRU, CNNLSTM
 from models.gemma_audio import GemmaAudioNet, build_gemma_audio_datasets
 from models.simple_cnn import SimpleCNN
 from models.transcript_only import TranscriptOnlyNet, precompute_transcript_embeddings
+from models.wavlm import WavLMNet, build_wavlm_datasets
 
 
 INWORLD_EMOTIONS = [
@@ -52,6 +53,8 @@ class ModelName(StrEnum):
     CNN_LSTM = "cnn_lstm"
     TRANSCRIPT_ONLY = "transcript_only"
     GEMMA_AUDIO = "gemma_audio"
+    WAVLM_ONLY = "wavlm_only"
+    WAVLM_AND_TRANSCRIPT = "wavlm_and_transcript"
 
 
 def _inworld_emotions_merger(row: dict):
@@ -107,12 +110,15 @@ def _init_modal() -> tuple[modal.App, modal.Function]:
     image = (
         modal.Image.debian_slim()
         .apt_install("git")
-        .pip_install("nbdev-upc-aidl-iemocap-datasets @ git+https://github.com/gofordiego/nbdev-upc-aidl-iemocap-datasets.git")
+        .pip_install(
+            "nbdev-upc-aidl-iemocap-datasets @ git+https://github.com/gofordiego/nbdev-upc-aidl-iemocap-datasets.git#0b37e99e7d4c86c9993c27ce3991d246387fa985"
+        )
         .pip_install(
             "click",
             "python-dotenv",
             "wandb",
             "sentence-transformers",
+            "transformers",
         )
         .add_local_dir(
             os.path.join(os.path.dirname(os.path.abspath(__file__)), "models"),
@@ -160,6 +166,10 @@ def get_model(
         return TranscriptOnlyNet(num_classes=num_classes, dropout=dropout)
     elif model_enum == ModelName.GEMMA_AUDIO:
         return GemmaAudioNet(num_classes=num_classes, dropout=dropout)
+    elif model_enum == ModelName.WAVLM_ONLY:
+        return WavLMNet(num_classes=num_classes, mode="audio_only", dropout=dropout)
+    elif model_enum == ModelName.WAVLM_AND_TRANSCRIPT:
+        return WavLMNet(num_classes=num_classes, mode="multimodal", dropout=dropout)
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 
@@ -407,7 +417,7 @@ def run_training_process(config: dict):
 
     emotion_columns_override = None
     emotions_merger = None
-    if chunks_group_id == 6:
+    if chunks_group_id in (6, 8):
         emotion_columns_override = NEW_MERGE_EMOTIONS
         emotions_merger = _inworld_emotions_merger
     elif chunks_group_id == 7:
@@ -430,6 +440,8 @@ def run_training_process(config: dict):
         emotion_columns_override=emotion_columns_override,
         emotions_merger=emotions_merger,
     )
+    click.echo(f"{len(train_data)=}")
+
     val_data = factory.build_dataset(
         id=chunks_group_id,
         n_fft=n_fft,
@@ -444,6 +456,8 @@ def run_training_process(config: dict):
         emotion_columns_override=emotion_columns_override,
         emotions_merger=emotions_merger,
     )
+    click.echo(f"{len(val_data)=}")
+
     test_data = factory.build_dataset(
         id=chunks_group_id,
         n_fft=n_fft,
@@ -458,6 +472,7 @@ def run_training_process(config: dict):
         emotion_columns_override=emotion_columns_override,
         emotions_merger=emotions_merger,
     )
+    click.echo(f"{len(test_data)=}")
 
     train_data_extractor = None
     if model_name.lower() == ModelName.TRANSCRIPT_ONLY:
@@ -473,6 +488,10 @@ def run_training_process(config: dict):
         if not enable_spec_augment:
             train_data = train_data_extractor()
             train_data_extractor = None
+    elif model_name.lower() in (ModelName.WAVLM_ONLY, ModelName.WAVLM_AND_TRANSCRIPT):
+        mode = "multimodal" if model_name.lower() == ModelName.WAVLM_AND_TRANSCRIPT else "audio_only"
+        click.echo(f"Building WavLM datasets for mode: {mode}...")
+        train_data, val_data, test_data = build_wavlm_datasets(train_data, val_data, test_data, mode=mode)
 
     num_classes = len(train_data.LABELS_EMOTIONS)
     config["num_classes"] = num_classes
@@ -544,13 +563,19 @@ def run_training_process(config: dict):
 
     best_val_acc = 0.0
 
+    click.echo(f"\nStarting training: {epochs} epochs | batch size: {batch_size} | device: {device}\n")
+
     for epoch in range(epochs):
         # Train
         model.train()
         train_loss, train_correct, train_total = 0.0, 0, 0
+        click.echo(f"Epoch {epoch+1:02d}/{epochs:02d} | Training...")
 
         train_batches = [single_batch] * len(train_loader) if overfit_single_batch else train_loader
-        for specs, labels in train_batches:
+        total_batches = len(train_batches)
+        log_interval = max(1, total_batches // 10)
+
+        for i, (specs, labels) in enumerate(train_batches):
             specs = specs.unsqueeze(1).to(device)
             targets = labels.argmax(dim=1).to(device)
 
@@ -565,10 +590,14 @@ def run_training_process(config: dict):
             train_correct += (preds == targets).sum().item()
             train_total += targets.size(0)
 
+            if (i + 1) % log_interval == 0 or (i + 1) == total_batches:
+                click.echo(f"  Step {i+1:04d}/{total_batches:04d} | Batch Loss: {loss.item():.4f}")
+
         train_acc = train_correct / train_total
-        train_loss = train_loss / len(train_loader)
+        train_loss = train_loss / total_batches
 
         # Validate
+        click.echo(f"Running validation for Epoch {epoch+1:02d}...")
         model.eval()
         val_correct, val_total = 0, 0
         all_preds, all_targets = [], []
