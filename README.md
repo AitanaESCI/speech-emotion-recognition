@@ -43,6 +43,7 @@ Full architectural details and iterations are documented experiment-by-experimen
 **Computational Requirements** (TODO review)
 - Feature extraction: log-mel spectrograms (n_mels=80, n_fft=1024, hop_length=160, win_length=400)
 - Training: single GPU (Google Colab), experiments ranging from 30 to 100 epochs depending on architecture
+- For WavLM a A100 Computer power is suggested, but will take several hours.
 - Experiment tracking: [Weights & Biases](https://wandb.ai/)
 
 ## 3. Setup & Reproducibility
@@ -88,7 +89,19 @@ uv run python train.py --model-name cnn_lstm --epochs 50 --dropout 0.1 --pitch-s
 ```
 
 ### Reproducing our best model (TODO - review)
-Our final selected model is **Experiment 8** (EfficientNet-B0, frozen layers, dropout 0.5, pitch shift augmentation) — see [Section 4](#4-experiments) for full configuration.
+We report the best model in each family:
+
+- **Best from-scratch / CNN model** — **Experiment 7** (EfficientNet-B0, frozen layers,
+  dropout 0.5, pitch shift augmentation): Test Acc 0.536, Macro F1 0.502.
+- **Best pretrained model (and final selected model)** — **Experiment 11** (WavLM Large,
+  audio only, base frozen, top 6 layers + MLP head fine-tuned): Test Acc 0.641, Macro F1 0.603.
+  WavLM multimodal (audio + text, Experiment 12) scored slightly higher (0.656 / 0.619), but
+  the text gain was not statistically significant (p = 0.095), so we keep the simpler
+  audio-only model as final.
+
+See [Section 4](#4-experiments) for full configurations.
+
+___
 
 ## 4. Experiments
 
@@ -274,6 +287,96 @@ Replacing automatic sqrt-weighting with manually tuned class weights (emphasizin
 **Conclusions**
 Overfitting remained solved, but performance slightly regressed compared to Exp 7. Manual weights didn't translate into better discrimination — Neutral and Positive classes still underperformed, suggesting the issue is more about feature separability than loss weighting. We kept **Experiment 7** as our final model.
 
+---
+
+### Experiment 9: CNN + GRU/LSTM
+
+**Hypothesis**
+A recurrent layer (GRU/LSTM) on top of the CNN would capture the timing and rhythm of
+speech that a static spectrogram CNN misses.
+
+**Setup**
+- Architecture: CNN feature extractor + GRU/LSTM head
+- Classes: 4 | Loss: sqrt-weighted CrossEntropy + Focal
+
+**Results**
+| Metric | Value |
+|---|---|
+| Test Accuracy | 0.478 |
+| Test Macro F1 | 0.459 |
+
+**Conclusions** The dataset was too small for recurrence to help, and aggressive pooling
+before the GRU left too little context to use. It did not beat the plain CNN.
+
+---
+
+### Experiment 10: Pretrained speech backbones, Wav2Vec2 & HuBERT (audio only)
+
+**Hypothesis**
+A model pretrained on large amounts of speech would transfer richer audio features
+(tone, prosody) than a CNN trained from scratch on spectrograms.
+
+**Setup**
+- Architecture: Wav2Vec2 and HuBERT, partial fine-tuning, raw waveform input
+- Classes: 4 | Loss: soft-label CrossEntropy
+
+**Results**
+| Model | Test Accuracy | Test Macro F1
+|---|---|---|
+| Wav2Vec2 | 0.510 | 0.494 |
+| HuBERT | 0.565 | 0.554 |
+
+**Conclusions**: Both beat the from-scratch CNN and EfficientNet — pretraining on speech (not images) was the biggest lever so far. HuBERT clearly outperformed Wav2Vec2.
+
+---
+
+### Experiment 11: WavLM (audio only) — FINAL / BEST MODEL
+
+**Hypothesis**
+WavLM, pretrained self-supervised on ~94k hours of speech, would capture tone and prosody
+better than any previous model.
+
+**Setup**
+- Architecture: WavLM Large (24 layers, 316M params). Freeze the base, fine-tune the top 6 layers + a small MLP head. Mean + std pooling over time.
+- Loss: soft CrossEntropy on soft labels | Classes: 4
+- Training: ~15 epochs, ~5h on a Colab A100 GPU
+
+
+**Results**
+| Metric | Value |
+|---|---|
+| Test Accuracy | 0.641 |
+| Test Macro F1 | 0.603 |
+
+
+**Conclusions**: Best model of the whole project (~+0.09 macro-F1 over from-scratch models). Large speech pretraining plus light fine-tuning gave the biggest jump. This is our final selected model.
+
+---
+
+
+### Experiment 12: WavLM Multimodal (audio + text)
+
+**Hypothesis**
+Adding the text transcript (what was said) to the audio (how it was said) would give extra
+signal and improve results.
+
+**Setup**
+- Architecture: WavLM audio branch + MiniLM text encoder on the transcript, fused before the classifier head. Same training regime as Experiment 11.
+
+**Results**
+| Metric | Value |
+|---|---|
+| Test Accuracy | 0.656 |
+| Test Macro F1 | 0.619 |
+
+**Conclusions**
+Multimodal was almost the same as audio-only. The text gain was not
+statistically significant (p = 0.095). This is a real finding, not a failure: for emotion,
+most of the signal lives in the audio, not the words.
+
+
+---
+
 ## 5. Results Summary
 
 | # | Experiment | Classes | Val Acc | Test Acc | Test Macro F1 | Notes |
@@ -284,8 +387,14 @@ Overfitting remained solved, but performance slightly regressed compared to Exp 
 | 4 | Skip connections | 4 | 0.477 | 0.52 | 0.487 | |
 | 5 | Reduced dropout | 4 | 0.497 | 0.52 | 0.485 | |
 | 6 | EfficientNet-B0 | 4 | 0.51 | 0.53 | 0.49 | Best so far, overfitting |
-| 7 | EfficientNet-B0 + frozen layers + pitch shift | 4 | 0.5106 | 0.536 | **0.502** | **Final model** — Overfitting solved |
+| 7 | EfficientNet-B0 + frozen layers + pitch shift | 4 | 0.5106 | 0.536 | **0.502** | Overfitting solved |
 | 8 | EfficientNet-B0 + manual weights | 4 | 0.503 | 0.504 | 0.478 | Didn't outperform Exp 7 |
+| 9 | CNN + GRU/LSTM | 4 | - | 0.478 | 0.459 | Too little data |
+| 10 | HuBERT (audio only) | 4 | - | 0.565 | 0.554 | Pretraining helps a lot|
+| 10 | Wav2Vec2 (audio only) | 4 | - | 0.510 | 0.494 | Pretrained speech |
+| 11 | WavLM (audio only) | 4 | - | 0.641 | 0.603 | Best pre trained model|
+| 12 | WavLM multimodal (audio+text) | 4 | - | 0.656 | 0.619 | Text not significant |
+
 
 ## 6. Conclusions & Future Work
 
@@ -294,14 +403,16 @@ Overfitting remained solved, but performance slightly regressed compared to Exp 
 - Adding capacity (skip connections, EfficientNet transfer learning) helped, but only once paired with appropriate regularization: naive transfer learning overfit quickly on a dataset this size.
 - Manually tuned loss weights did not outperform principled automatic weighting (sqrt-weighting), reinforcing that the harder classes (Neutral, Positive) suffer more from feature overlap than from data scarcity alone.
 - Speaker-independent evaluation is essential for an honest performance estimate and makes this a genuinely harder problem than speaker-dependent benchmarks suggest.
+- On small data, pretraining wins. WavLM beat every model trained from scratch. The single biggest jump came from switching to a speech-pretrained backbone, not from architecture tweaks.
+- Data quality is the ceiling. Training accuracy (0.75) was only a little above validation(0.65) — a small gap, so the model is not overfitting; the labels themselves are noisy. The last rounds of tuning only moved results by 1–2 points.
+- Multimodality needs a reason. Adding the text transcript did not significantly help. For emotion, the signal lives in the audio (tone/prosody), not the words.
 
 **Limitations**
-- Final macro F1 (~0.54) shows the model still struggles to separate Neutral and Positive emotions specifically.
+- Final macro F1 (~0.6) shows the model still struggles to separate Neutral and Positive emotions specifically.
 - The demo app's diarization component is not fully functional yet.
 - Performance was evaluated only on IEMOCAP (acted emotion); real meeting audio is likely more subtle and may not transfer perfectly.
 
 **Future Work**
-- Explore CNN+GRU or other temporal architectures to capture rhythmic dynamics over time, not just static spectrogram patches.
 - Fix and properly evaluate the speaker diarization component for multi-speaker meeting audio.
 - Collect or fine-tune on more naturalistic (non-acted) emotional speech data.
 </p>
