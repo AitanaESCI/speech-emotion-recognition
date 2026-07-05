@@ -25,7 +25,7 @@
 <p align="justify">
 Understanding emotion in spoken communication is a key building block for applications ranging from meeting analytics to mental health monitoring and human-computer interaction. While text-based sentiment analysis is widely studied, vocal tone carries emotional information that text alone cannot capture: the same sentence can convey frustration, sarcasm, or enthusiasm purely through how it's spoken.
 
-This project focuses on **Speech Emotion Recognition (SER) for meeting audio**: given a short audio clip, classify the speaker's emotional state. Meetings are a particularly useful domain — speech is often overlapping, informal, and emotionally subtle, unlike the acted, exaggerated emotion in many benchmark datasets. Successfully tackling this could enable tools that flag team friction, measure engagement, or summarize meeting tone automatically.
+This project focuses on **Speech Emotion Recognition (SER) for meeting audio**: given a short audio clip, classify the speaker's emotional state. Meetings are a particularly useful domain speech is often overlapping, informal, and emotionally subtle, unlike the acted, exaggerated emotion in many benchmark datasets. Successfully tackling this could enable tools that flag team friction, measure engagement, or summarize meeting tone automatically.
 
 We chose this project because it combines a real audio signal processing challenge (extracting meaningful features from raw waveforms) with a classic deep learning problem: class imbalance, speaker-independent generalization, and the trade-off between model capacity and overfitting on a moderately sized dataset.
 
@@ -36,7 +36,7 @@ We use a CNN-based image classification approach applied to audio: raw waveforms
 Full architectural details and iterations are documented experiment-by-experiment in [Section 4](#4-experiments).
 
 **Data**
-- Dataset: [IEMOCAP](https://sail.usc.edu/iemocap/) — ~10,000 audio clips from 10 actors across 5 sessions
+- Dataset: [IEMOCAP](https://sail.usc.edu/iemocap/) -> ~10,000 audio clips from 10 actors across 5 sessions
 - Original 9 emotion labels merged into 4 balanced classes: Anger, Happiness, Sadness, Neutral
 - Speaker-independent train/validation/test split by session, to prevent speaker leakage and ensure the model generalizes to unseen voices
 
@@ -101,9 +101,9 @@ uv run python train.py --model-name wavlm_and_transcript --epochs 15 --dropout 0
 ### Reproducing our best model(s)
 We report the best model in each family:
 
-- **Best from-scratch / CNN model** — **Experiment 7** (EfficientNet-B0, frozen layers,
+- **Best from-scratch / CNN model**, **Experiment 7** (EfficientNet-B0, frozen layers,
   dropout 0.5, pitch shift augmentation): Test Acc 0.536, Macro F1 0.502.
-- **Best pretrained model (and final selected model)** — **Experiment 11** (WavLM Large,
+- **Best pretrained model (and final selected model)**, **Experiment 11** (WavLM Large,
   audio only, base frozen, top 6 layers + MLP head fine-tuned): Test Acc 0.641, Macro F1 0.603.
   WavLM multimodal (audio + text, Experiment 12) scored slightly higher (0.656 / 0.619), but
   the text gain was not statistically significant (p = 0.095), so we keep the simpler
@@ -254,7 +254,7 @@ Best result so far, but training curves showed clear overfitting: training accur
 
 ---
 
-### Experiment 7: EfficientNet-B0 — Frozen Layers + Higher Dropout + Pitch Shift
+### Experiment 7: EfficientNet-B0, Frozen Layers + Higher Dropout + Pitch Shift
 
 **Hypothesis**
 
@@ -277,7 +277,7 @@ This solved the overfitting problem from Experiment 6 (training and validation c
 
 ---
 
-### Experiment 8: EfficientNet-B0 — Manual Class Weights
+### Experiment 8: EfficientNet-B0 Manual Class Weights
 
 **Hypothesis**
 
@@ -295,7 +295,7 @@ Replacing automatic sqrt-weighting with manually tuned class weights (emphasizin
 | Test Macro F1 | 0.478 |
 
 **Conclusions**
-Overfitting remained solved, but performance slightly regressed compared to Exp 7. Manual weights didn't translate into better discrimination — Neutral and Positive classes still underperformed, suggesting the issue is more about feature separability than loss weighting. We kept **Experiment 7** as our final model.
+Overfitting remained solved, but performance slightly regressed compared to Exp 7. Manual weights didn't translate into better discrimination. Neutral and Positive classes still underperformed, suggesting the issue is more about feature separability than loss weighting. We kept **Experiment 7** as our final model.
 
 ---
 
@@ -336,11 +336,11 @@ A model pretrained on large amounts of speech would transfer richer audio featur
 | Wav2Vec2 | 0.510 | 0.494 |
 | HuBERT | 0.565 | 0.554 |
 
-**Conclusions**: Both beat the from-scratch CNN and EfficientNet — pretraining on speech (not images) was the biggest lever so far. HuBERT clearly outperformed Wav2Vec2.
+**Conclusions**: Both beat the from-scratch CNN and EfficientNet, pretraining on speech (not images) was the biggest lever so far. HuBERT clearly outperformed Wav2Vec2.
 
 ---
 
-### Experiment 11: WavLM (audio only) — FINAL / BEST MODEL
+### Experiment 11: WavLM (audio only) 
 
 **Hypothesis**
 WavLM, pretrained self-supervised on ~94k hours of speech, would capture tone and prosody
@@ -414,7 +414,7 @@ most of the signal lives in the audio, not the words.
 - Manually tuned loss weights did not outperform principled automatic weighting (sqrt-weighting), reinforcing that the harder classes (Neutral, Positive) suffer more from feature overlap than from data scarcity alone.
 - Speaker-independent evaluation is essential for an honest performance estimate and makes this a genuinely harder problem than speaker-dependent benchmarks suggest.
 - On small data, pretraining wins. WavLM beat every model trained from scratch. The single biggest jump came from switching to a speech-pretrained backbone, not from architecture tweaks.
-- Data quality is the ceiling. Training accuracy (0.75) was only a little above validation(0.65) — a small gap, so the model is not overfitting; the labels themselves are noisy. The last rounds of tuning only moved results by 1–2 points.
+- Data quality is the ceiling. Training accuracy (0.75) was only a little above validation(0.65) a small gap, so the model is not overfitting; the labels themselves are noisy. The last rounds of tuning only moved results by 1–2 points.
 - Multimodality needs a reason. Adding the text transcript did not significantly help. For emotion, the signal lives in the audio (tone/prosody), not the words.
 
 **Limitations**
