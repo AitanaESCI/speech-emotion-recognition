@@ -315,8 +315,10 @@ speech that a static spectrogram CNN misses.
 | Test Accuracy | 0.478 |
 | Test Macro F1 | 0.459 |
 
-**Conclusions** The dataset was too small for recurrence to help, and aggressive pooling
+**Conclusions**
+The dataset was too small for recurrence to help, and aggressive pooling
 before the GRU left too little context to use. It did not beat the plain CNN.
+
 ---
 
 ### Experiment 10: WavLM (audio only) 
