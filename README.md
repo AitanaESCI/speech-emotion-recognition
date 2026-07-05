@@ -115,275 +115,301 @@ ___
 
 ## 4. Experiments
 
-### Experiment 1: Baseline CNN (9 classes)
+[#4-experiments](#4-experiments)
+
+*Consolidated from the shared team experiment log (Results sheet), all experiments were run collaboratively as a team. Reproduction commands use the unified `train-cli` tool (`train-cli/train.py`), which replaced the earlier notebook-based workflow. Where an experiment predates the unified CLI and its architecture isn't part of the current `ModelName` enum (`simple_cnn`, `cnn_gru`, `cnn_lstm`, `transcript_only`, `gemma_audio`, `wavlm_only`, `wavlm_and_transcript`, `efficientnet_b0`), that's noted explicitly instead of a fabricated command.*
+
+**Shared preprocessing pipeline (applies to every experiment below unless noted):**
+- 4-class grouping from the original 9 IEMOCAP emotions (neutral / positive / negative / sad)
+- Soft labels, a probability spread across classes rather than a single hard label
+- Re-audited ground truth, clips flagged as low-quality by Whisper + Inworld were excluded
+- Speaker-independent evaluation, split by session, to avoid speaker leakage between train/val/test
+- **Metric of record: Macro-F1** (not raw accuracy), accuracy and per-setup Val/Test Acc are reported alongside for reference, but Macro-F1 is what we optimize for and compare against
+
+### Experiment 1: Baseline CNN + Class Merging (9 → 4 classes)
+
+[#experiment-1-baseline-cnn--class-merging-9--4-classes](#experiment-1-baseline-cnn--class-merging-9--4-classes)
 
 **Hypothesis**
 
-A simple CNN trained directly on the original 9 emotion classes would establish a baseline, but we expected class imbalance to limit performance on minority emotions.
+A simple CNN trained on the original 9 IEMOCAP emotions would establish a baseline, but class imbalance and label ambiguity across 9 fine-grained emotions would limit performance. Grouping them into 4 broader, better-balanced classes (neutral, sad, negativa, positiva) should give the model enough samples per class to learn meaningful patterns.
 
 **Setup**
-- Architecture: SimpleCNN (3 conv blocks, BatchNorm, MaxPool)
-- Classes: 9 (original IEMOCAP emotions)
-- Epochs: 10 | Dropout: 0.3 | Loss: CrossEntropy (unweighted) | Scheduler: None
-- No SpecAugment, no skip connections
+
+- Architecture: Simple CNN (3 conv blocks, BatchNorm, MaxPool)
+- Baseline: 9 classes | 10 epochs | Dropout 0.3 | CrossEntropy (unweighted) | No SpecAugment
+- 4-class merge: 4 classes | 20 epochs | Dropout 0.3 | Sqrt-weighted CrossEntropy | ReduceLROnPlateau | SpecAugment: Yes
 
 **Results**
-| Metric | Value |
-|---|---|
-| Val Accuracy | 0.376 |
-| Test Accuracy | 0.36 |
-| Test Macro F1 | 0.282 |
+
+| Setup | Val Acc | Test Acc | Test Macro-F1 |
+| --- | --- | --- | --- |
+| Baseline (9 classes) | 0.376 | 0.36 | 0.282 |
+| 4-class merge | 0.451 | 0.49 | 0.451 |
 
 **Conclusions**
-The low macro F1 relative to accuracy confirmed our suspicion: class imbalance was hurting minority emotion classes. This motivated weighting the loss function and merging rare classes in subsequent experiments.
+
+Class merging was the first unlock: going from 9 to 4 classes lifted F1 from 0.28 to 0.45, a bigger jump than any architectural change made afterward. This confirmed class imbalance and label granularity, not model capacity, were the initial bottleneck, and became the shared baseline for every experiment that followed.
+
+**Reproduce (current CLI, closest equivalent)**
+
+```bash
+uv run python train.py --model-name simple_cnn --epochs 20 --dropout 0.3 --disable-spec-augment
+uv run python train.py --model-name simple_cnn --epochs 20 --dropout 0.3 --enable-spec-augment
+```
 
 ---
 
-### Experiment 2: Weighted Loss + SpecAugment + ReduceLROnPlateau
+### Experiment 2: Class Weighting + Focal Loss
+
+[#experiment-2-class-weighting--focal-loss](#experiment-2-class-weighting--focal-loss)
 
 **Hypothesis**
 
-Adding class weighting and data augmentation would improve generalization and boost performance on underrepresented emotions.
+Weighting the loss function per class would help with the remaining imbalance, but the confusion between classes (e.g. happy/excited vs. neutral) looked more like label ambiguity than pure scarcity, Focal Loss should handle that better than a weighted CrossEntropy.
 
 **Setup**
-- Same architecture as Exp 1
-- Classes: 9 | Epochs: 15 | Dropout: 0.3
-- Loss: Weighted CrossEntropy | Scheduler: ReduceLROnPlateau | SpecAugment: Yes
+
+- Manual class weights: `[1.0, 2.5, 2.5, 3.5]`, CrossEntropy, 30 epochs, Dropout 0.5
+- Sqrt-weighted + Focal Loss (γ=1.5): CrossEntropy → FocalLoss, 34 epochs, Dropout 0.2, CosineAnnealingLR, SpecAugment: Yes
 
 **Results**
-| Metric | Value |
-|---|---|
-| Val Accuracy | 0.295 |
-| Test Accuracy | 0.31 |
-| Test Macro F1 | 0.27 |
+
+| Setup | Val Acc | Test Acc | Test Macro-F1 |
+| --- | --- | --- | --- |
+| Manual weights (CrossEntropy) | 0.503 | 0.504 | 0.478 |
+| Sqrt-weighted + Focal Loss (γ=1.5) | 0.501 | 0.501 | 0.514 |
 
 **Conclusions**
-Counter-intuitively, results were *worse* than the baseline. With 9 highly imbalanced classes, aggressive weighting combined with SpecAugment likely added too much noise relative to the signal available per class. This suggested the real fix was not weighting alone, but reducing the number of classes.
+
+Manually tuned weights did not outperform principled automatic weighting, switching from inverse-linear to sqrt-weighted was one of the best isolated improvements in the whole project, since linear weights over-correct and over-punish the priority classes. Focal Loss (γ=1.5) further improved F1 by targeting ambiguous examples directly. Even so, "happy" kept the worst recall of any class: not a data-scarcity problem, but acoustic confusability that survives even Focal Loss. **Adopted for the final model.**
+
+**Reproduce (current CLI)**
+
+```bash
+uv run python train.py --model-name simple_cnn --epochs 34 --dropout 0.2 --pitch-shift-prob 0.2 --enable-spec-augment
+```
+> Note: `train.py` currently exposes CrossEntropy-style weighting via the dataset/loss config rather than a CLI flag; Focal Loss (γ=1.5) and sqrt-weighting are set in `train-cli/models/`, flag this for the team to confirm whether it's worth exposing as `--loss-fn` / `--gamma` options for reproducibility.
 
 ---
 
-### Experiment 3: Class Merging (9 → 4 classes)
+### Experiment 3: CNN + GRU / LSTM (Recurrent Architectures)
+
+[#experiment-3-cnn--gru--lstm-recurrent-architectures](#experiment-3-cnn--gru--lstm-recurrent-architectures)
 
 **Hypothesis**
 
-Merging the 9 original emotions into 4 broader, better-balanced classes (anger, happiness, sadness, neutral) would give the model enough samples per class to learn meaningful patterns.
+Adding a recurrent layer on top of the CNN's feature maps should capture the temporal/prosodic dynamics of speech better than a purely convolutional model.
 
 **Setup**
-- Same architecture as Exp 1-2
-- Classes: 4 | Epochs: 20 | Dropout: 0.3
-- Loss: Sqrt-weighted CrossEntropy | Scheduler: ReduceLROnPlateau | SpecAugment: Yes
+
+- CNN + GRU (weighted attention): 100 epochs, batch 32, CrossEntropy, CosineAnnealingLR, SpecAugment on/off comparison
+- CNN + LSTM (weighted attention): 100–250 epochs, batch 32, same loss/scheduler
 
 **Results**
-| Metric | Value |
-|---|---|
-| Val Accuracy | 0.451 |
-| Test Accuracy | 0.49 |
-| Test Macro F1 | 0.451 |
+
+| Setup | Val Acc | Test Acc | Test Macro-F1 |
+| --- | --- | --- | --- |
+| CNN + GRU (with SpecAugment) | 0.532 | 0.52 | 0.465 |
+| CNN + GRU (without SpecAugment) | 0.52 | 0.50 | 0.455 |
+| CNN + LSTM (100 epochs) | 0.5157 | 0.505 | 0.446 |
 
 **Conclusions**
-A substantial jump in every metric, validating that class imbalance (not model capacity) was the main bottleneck. This became our new baseline for all subsequent architecture experiments.
+
+Confirmed independently by two team members: a plain CNN matched or beat CNN+RNN variants. The recurrent layer added ~1 hour of extra training time per run and, without SpecAugment, overfit hard (near-100% memorization by epoch 90), likely because aggressive pooling before the GRU left too little temporal context for it to exploit. **Not adopted.**
+
+**Reproduce (current CLI)**
+
+```bash
+uv run python train.py --model-name cnn_gru --epochs 100 --batch-size 32 --enable-spec-augment
+uv run python train.py --model-name cnn_lstm --epochs 100 --batch-size 32 --enable-spec-augment
+```
 
 ---
 
-### Experiment 4: Skip Connections
+### Experiment 4: Skip Connections / Residual Blocks
+
+[#experiment-4-skip-connections--residual-blocks](#experiment-4-skip-connections--residual-blocks)
 
 **Hypothesis**
 
-Adding residual connections would help gradients flow through deeper layers, allowing the model to learn richer features without degradation.
+Residual connections (as in ResNet) would improve gradient flow and let the model learn richer features without degradation as depth increases.
 
 **Setup**
-- Architecture: EmotionCNN with 3 residual blocks (Conv→BN→ReLU→Conv→BN + shortcut)
-- Classes: 4 | Epochs: 20 | Dropout: 0.0
-- Loss: Sqrt-weighted CrossEntropy | Scheduler: ReduceLROnPlateau | SpecAugment: No
+
+- Architecture: CNN with residual blocks (Conv→BN→ReLU→Conv→BN + shortcut)
+- 4 classes | 20 epochs | Dropout 0.0 | Sqrt-weighted CrossEntropy | ReduceLROnPlateau | SpecAugment: No
 
 **Results**
+
 | Metric | Value |
-|---|---|
+| --- | --- |
 | Val Accuracy | 0.477 |
 | Test Accuracy | 0.52 |
-| Test Macro F1 | 0.487 |
+| Test Macro-F1 | 0.487 |
 
 **Conclusions**
-Skip connections improved both accuracy and macro F1, confirming that a deeper residual architecture could extract better features than the plain CNN at this data scale.
+
+Extra capacity only paid off once paired with proper regularization, on its own it gave a modest bump but didn't clearly beat the simpler architecture once Focal Loss and sqrt-weighting were already in place, and added noticeable training complexity. **Not adopted** in the final model.
 
 ---
 
-### Experiment 5: Reduced Dropout
+### Experiment 5: SpecAugment & Pitch Shift
+
+[#experiment-5-specaugment--pitch-shift](#experiment-5-specaugment--pitch-shift)
 
 **Hypothesis**
 
-With skip connections stabilizing training, the original 0.3 dropout might be overly conservative: reducing it could let the model use its full capacity.
+With a dataset as limited as IEMOCAP, augmenting the spectrogram (SpecAugment) and randomizing pitch should improve generalization and reduce overfitting.
 
 **Setup**
-- Same residual architecture as Exp 4
-- Classes: 4 | Epochs: 20 | Dropout: 0.1
-- Loss: CrossEntropy | Scheduler: ReduceLROnPlateau | SpecAugment: No
+
+- SpecAugment on/off ablation on CNN+GRU (see Experiment 3 table)
+- Pitch shift as a tunable hyperparameter: Focal Loss γ=1.5, 100 epochs, sweep in progress
 
 **Results**
-| Metric | Value |
-|---|---|
-| Val Accuracy | 0.497 |
-| Test Accuracy | 0.52 |
-| Test Macro F1 | 0.485 |
+
+SpecAugment measurably reduced overfitting in the CNN+GRU ablation (Experiment 3): without it, training memorized the data by epoch 90; with it, that failure mode didn't appear. Pitch shift as a standalone hyperparameter gave mixed results and was not conclusively better across runs.
 
 **Conclusions**
-Validation accuracy improved slightly, though test macro F1 stayed roughly flat. This indicated we were near the ceiling of what this architecture could achieve without further regularization or a stronger backbone.
+
+Augmentation helped in specific architectures (recurrent models prone to overfitting) but didn't fix the deeper problem: noisy, disagreement-prone labels set a ceiling that augmentation alone can't push past. **Not included** in the final model's documented configuration, we prioritized delta/delta-delta channels as our robustness mechanism instead.
+
+**Reproduce (current CLI)**
+
+```bash
+uv run python train.py --model-name cnn_gru --epochs 100 --enable-spec-augment --pitch-shift-prob 0.3
+uv run python train.py --model-name cnn_gru --epochs 100 --disable-spec-augment --pitch-shift-prob 0.0
+```
 
 ---
 
-### Experiment 6: EfficientNet-B0 (Transfer Learning)
+### Experiment 6: Pretrained Backbones — EfficientNet-B0 & WavLM
+
+[#experiment-6-pretrained-backbones--efficientnet-b0--wavlm](#experiment-6-pretrained-backbones--efficientnet-b0--wavlm)
 
 **Hypothesis**
 
-A pretrained EfficientNet-B0 backbone (ImageNet weights) would outperform our custom CNN by leveraging general-purpose visual features, even though spectrograms differ from natural images.
+A model pretrained on a large external corpus, EfficientNet-B0 (ImageNet) or WavLM (large audio corpora), should transfer richer representations than a CNN trained from scratch on IEMOCAP alone.
 
 **Setup**
-- Architecture: EfficientNet-B0, first conv adapted from 3→1 channel (averaged RGB weights), dataset `id=2` (improved class merging + padding)
-- Classes: 4 | Epochs: 30 | Dropout: 0.1
-- Loss: CrossEntropy | LR: 1e-4 (no scheduler) | SpecAugment: Yes
+
+- EfficientNet-B0 (first conv adapted to 1 input channel), 30–40 epochs, CrossEntropy, SpecAugment: Yes
+- EfficientNet-B0 with frozen layers + Dropout 0.5 + pitch shift (regularized variant)
+- WavLM frozen encoder / fine-tuned audio-only / multimodal (audio + text), 15 epochs, Weighted/soft CrossEntropy, 3-seed averages
 
 **Results**
-| Metric | Value |
-|---|---|
-| Val Accuracy | 0.51 |
-| Test Accuracy | 0.53 |
-| Test Macro F1 | 0.49 |
+
+| Setup | Val Acc | Test Acc | Test Macro-F1 |
+| --- | --- | --- | --- |
+| EfficientNet-B0 (unfrozen, id=1) | 0.56 | 0.572 | 0.579 |
+| EfficientNet-B0 (unregularized, id=2) | 0.51 | 0.53 | 0.49 |
+| EfficientNet-B0 (frozen layers + dropout 0.5 + pitch shift) | 0.5106 | 0.536 | 0.502 |
+| WavLM fine-tuned (audio-only, 3-seed avg) | 0.631 | 0.641 | 0.606 |
+| WavLM multimodal (audio + text, 3-seed avg) | 0.653 | 0.656 | 0.619 |
 
 **Conclusions**
-Best result so far, but training curves showed clear overfitting: training accuracy kept climbing while validation plateaued and oscillated after epoch 3. This meant the gain was not fully reliable and needed regularization.
+
+Pretraining was the single biggest lever the team found, WavLM beat every from-scratch architecture by a wide margin. But regularization mattered as much as architecture: EfficientNet-B0 only stopped overfitting once we froze layers and added dropout; without that, extra capacity alone just overfit faster. The WavLM results also didn't fully transfer to new, real-world audio despite strong IEMOCAP numbers. **Not adopted**, both approaches violate the project's from-scratch constraint.
+
+**WavLM-specific observations** *(don't generalize to the other experiments in this document)*:
+- Training accuracy (0.75) was only a little above validation accuracy (0.65), a small train/val gap like this means the model isn't overfitting; the labels themselves are just noisy.
+- Validation score stopped improving after about epoch 4. Audio-only and audio+text lines sit on top of each other for the rest of training, which is the clearest evidence that adding text doesn't meaningfully help this setup (see Experiment 8).
+
+**Reproduce (current CLI)**
+
+```bash
+uv run python train.py --model-name efficientnet_b0 --epochs 30 --dropout 0.1 --enable-spec-augment
+uv run python train.py --model-name efficientnet_b0 --epochs 30 --dropout 0.5 --pitch-shift-prob 0.2 --enable-spec-augment
+uv run python train.py --model-name wavlm_only --epochs 15
+```
+> Note: the current `train.py` fine-tunes `microsoft/wavlm-large`'s top 6 layers by default, the "frozen encoder" variant we also tried isn't exposed as a CLI flag yet.
 
 ---
 
-### Experiment 7: EfficientNet-B0, Frozen Layers + Higher Dropout + Pitch Shift
+### Experiment 7: Disabling Early Stopping (Fixed Epoch Budget)
+
+[#experiment-7-disabling-early-stopping-fixed-epoch-budget](#experiment-7-disabling-early-stopping-fixed-epoch-budget)
 
 **Hypothesis**
 
-Freezing more of the pretrained backbone, increasing dropout, and adding pitch shift augmentation would reduce overfitting while preserving the transfer learning benefit.
+An aggressive early-stopping patience should save compute and prevent overfitting, this was our default assumption going in.
 
 **Setup**
-- Same EfficientNet-B0 backbone, fewer layers unfrozen
-- Classes: 4 | Epochs: 30 | Dropout: 0.5 | Batch size: 32
-- Loss: CrossEntropy | Scheduler: CosineAnnealingLR | SpecAugment: Yes | Pitch shift p: 0.2
+
+- Baseline: `patience_stop=15`
+- Revised: patience set to the full epoch budget (50 fixed epochs), effectively disabling early stopping
 
 **Results**
-| Metric | Value |
-|---|---|
-| Val Accuracy | 0.5106 |
-| Test Accuracy | 0.536 |
-| Test Macro F1 | 0.502 |
+
+No isolated ablation row exists in the shared spreadsheet for this change, it surfaced as a qualitative finding during review, not a dedicated experiment run. In our own before/after comparison, disabling early stopping recovered roughly 1–2 UA points that had previously been lost.
 
 **Conclusions**
-This solved the overfitting problem from Experiment 6 (training and validation curves tracked much more closely), while also achieving our best test macro F1. This became our final selected model.
+
+We traced a meaningful chunk of underperformance not to architecture or augmentation, but to `patience_stop=15` silently cutting training short before convergence. This directly matched our own experience, so we adopted a fixed 50-epoch budget with patience = epoch count for the final model. **Adopted.**
+
+**Reproduce (current CLI)**
+
+pendiente
 
 ---
 
-### Experiment 8: EfficientNet-B0 Manual Class Weights
+### Experiment 8: Text/Multimodal & Large Audio Models (Gemma Audio)
+
+[#experiment-8-textmultimodal--large-audio-models-gemma-audio](#experiment-8-textmultimodal--large-audio-models-gemma-audio)
 
 **Hypothesis**
 
-Replacing automatic sqrt-weighting with manually tuned class weights (emphasizing harder classes) might further improve performance on underperforming classes like Neutral and Positive.
+Combining transcribed text and/or large-scale pretrained audio models (Gemma Audio) should add signal beyond the spectrogram alone.
 
 **Setup**
-- Same architecture/config as Exp 7
-- Loss: CrossEntropy with manual weights `[1.0, 2.5, 2.5, 3.5]`
+
+- Transcript-only (MiniLM embeddings + linear MLP), 20 epochs, CrossEntropy
+- Gemma Audio conformer, 50 epochs, CrossEntropy
+- WavLM multimodal (audio + text) with augmentation, 15 epochs, soft CrossEntropy
 
 **Results**
-| Metric | Value |
-|---|---|
-| Val Accuracy | 0.503 |
-| Test Accuracy | 0.504 |
-| Test Macro F1 | 0.478 |
+
+| Setup | Val Acc | Test Acc | Test Macro-F1 |
+| --- | --- | --- | --- |
+| Transcript-only (MiniLM) | 0.627 | 0.586 | 0.553 |
+| Gemma Audio conformer | 0.59 | 0.60 | 0.58 |
+| WavLM multimodal + augmentation | 0.631 | 0.647 | 0.623 |
 
 **Conclusions**
-Overfitting remained solved, but performance slightly regressed compared to Exp 7. Manual weights didn't translate into better discrimination. Neutral and Positive classes still underperformed, suggesting the issue is more about feature separability than loss weighting. We kept **Experiment 7** as our final model.
 
----
+Text was a finding, not a failure: multimodal performance came out roughly on par with audio-only, and text was not statistically significant in a dedicated ablation (t-test p = 0.095; shuffle-text ablation ≈ 0 effect), the model largely ignores the text channel. Both the transcript-only and Gemma Audio results were also flagged for data leakage (IEMOCAP sessions are scripted, and Gemma's audio conformer is itself trained for speech recognition). **Not adopted.**
 
-### Experiment 9: CNN + GRU/LSTM
+**Reproduce (current CLI)**
 
-**Hypothesis**
-A recurrent layer (GRU/LSTM) on top of the CNN would capture the timing and rhythm of
-speech that a static spectrogram CNN misses.
-
-**Setup**
-- Architecture: CNN feature extractor + GRU/LSTM head
-- Classes: 4 | Loss: CrossEntropy
-
-**Results**
-| Metric | Value |
-|---|---|
-| Test Accuracy | 0.478 |
-| Test Macro F1 | 0.459 |
-
-**Conclusions**
-The dataset was too small for recurrence to help, and aggressive pooling
-before the GRU left too little context to use. It did not beat the plain CNN.
-
----
-
-### Experiment 10: WavLM (audio only) 
-
-**Hypothesis**
-WavLM, pretrained self-supervised on ~94k hours of speech, would capture tone and prosody
-better than any previous model.
-
-**Setup**
-- Architecture: WavLM Large (24 layers, 316M params). Freeze the base, fine-tune the top 6 layers + a small MLP head. Mean + std pooling over time.
-- Loss: soft CrossEntropy on soft labels | Classes: 4
-- Training: ~15 epochs, ~5h on a Colab A100 GPU
-
-
-**Results**
-| Metric | Value |
-|---|---|
-| Test Accuracy | 0.641 |
-| Test Macro F1 | 0.603 |
-
-
-**Conclusions**: Best model of the whole project (~+0.09 macro-F1 over from-scratch models). Large speech pretraining plus light fine-tuning gave the biggest jump. This is our final selected model.
-
----
-
-
-### Experiment 11: WavLM Multimodal (audio + text)
-
-**Hypothesis**
-Adding the text transcript (what was said) to the audio (how it was said) would give extra
-signal and improve results.
-
-**Setup**
-- Architecture: WavLM audio branch + MiniLM text encoder on the transcript, fused before the classifier head. Same training regime as Experiment 10.
-
-**Results**
-| Metric | Value |
-|---|---|
-| Test Accuracy | 0.656 |
-| Test Macro F1 | 0.619 |
-
-**Conclusions**
-Multimodal was almost the same as audio-only. The text gain was not
-statistically significant (p = 0.095). This is a real finding, not a failure: for emotion,
-most of the signal lives in the audio, not the words.
-
-
----
+```bash
+uv run python train.py --model-name transcript_only --epochs 20
+uv run python train.py --model-name gemma_audio --epochs 50
+uv run python train.py --model-name wavlm_and_transcript --epochs 15
+```
 
 ## 5. Results Summary
 
-| # | Experiment | Classes | Val Acc | Test Acc | Test Macro F1 | Notes |
-|---|---|---|---|---|---|---|
-| 1 | Baseline CNN | 9 | 0.376 | 0.36 | 0.282 | First experiment |
-| 2 | Weighted loss + SpecAug | 9 | 0.295 | 0.31 | 0.27 | Worse than baseline |
-| 3 | 4-class merge | 4 | 0.451 | 0.49 | 0.451 | Key turning point |
-| 4 | Skip connections | 4 | 0.477 | 0.52 | 0.487 | |
-| 5 | Reduced dropout | 4 | 0.497 | 0.52 | 0.485 | |
-| 6 | EfficientNet-B0 | 4 | 0.51 | 0.53 | 0.49 | Best so far, overfitting |
-| 7 | EfficientNet-B0 + frozen layers + pitch shift | 4 | 0.5106 | 0.536 | **0.502** | Overfitting solved |
-| 8 | EfficientNet-B0 + manual weights | 4 | 0.503 | 0.504 | 0.478 | Didn't outperform Exp 7 |
-| 9 | CNN + GRU/LSTM | 4 | - | 0.478 | 0.459 | Too little data |
-| 10 | WavLM (audio only) | 4 | - | 0.641 | 0.603 | Best pre trained model|
-| 11 | WavLM multimodal (audio+text) | 4 | - | 0.656 | 0.619 | Text not significant |
+[#5-results-summary](#5-results-summary)
 
+| # | Experiment | Best Test Acc | Best Test Macro-F1 | Final Model |
+| --- | --- | --- | --- | --- |
+| 1 | Baseline CNN + 4-class grouping | 0.49 | 0.451 | ✅ Yes |
+| 2 | Class weighting + Focal Loss | 0.504 | 0.514 | ✅ Yes |
+| 3 | CNN + GRU / LSTM | 0.52 | 0.465 | ❌ No |
+| 4 | Skip connections / residual blocks | 0.52 | 0.487 | ❌ No |
+| 5 | SpecAugment & Pitch Shift | 0.52 | 0.465 | ❌ No |
+| 6 | Pretrained backbones (EfficientNet-B0 / WavLM) | 0.656 | 0.619 | ❌ No (violates from-scratch constraint) |
+| 7 | Disabling early stopping (fixed epochs) | — | — | ✅ Yes |
+| 8 | Text/Multimodal & Gemma Audio | 0.647 | 0.623 | ❌ No |
+
+**Cross-team takeaways (not tied to a single experiment)**
+
+- Speaker-independent (LOSO) evaluation is essential for an honest estimate, a genuinely harder setup than speaker-dependent benchmarks suggest
+- There's a practical ceiling on this dataset: noisy, disagreement-prone labels cap how far any architecture can go, by the last rounds, gains were down to 1–2 points
+
+
+---
 
 ## 6. Conclusions & Future Work
 
