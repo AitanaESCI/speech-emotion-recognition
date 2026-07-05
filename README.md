@@ -98,7 +98,7 @@ uv run python train.py --model-name wavlm_and_transcript --epochs 15 --dropout 0
 
 ```
 
-### Reproducing our best model (TODO - review)
+### Reproducing our best model(s)
 We report the best model in each family:
 
 - **Best from-scratch / CNN model** — **Experiment 7** (EfficientNet-B0, frozen layers,
