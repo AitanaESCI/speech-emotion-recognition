@@ -25,6 +25,7 @@ from models.gemma_audio import GemmaAudioNet, build_gemma_audio_datasets
 from models.simple_cnn import SimpleCNN
 from models.transcript_only import TranscriptOnlyNet, precompute_transcript_embeddings
 from models.wavlm import WavLMNet, build_wavlm_datasets
+from models.efficientnet import EfficientNetSER
 
 
 INWORLD_EMOTIONS = [
@@ -55,6 +56,7 @@ class ModelName(StrEnum):
     GEMMA_AUDIO = "gemma_audio"
     WAVLM_ONLY = "wavlm_only"
     WAVLM_AND_TRANSCRIPT = "wavlm_and_transcript"
+    EFFICIENTNET_B0 = "efficientnet_b0"
 
 
 def _inworld_emotions_merger(row: dict):
@@ -170,6 +172,8 @@ def get_model(
         return WavLMNet(num_classes=num_classes, mode="audio_only", dropout=dropout)
     elif model_enum == ModelName.WAVLM_AND_TRANSCRIPT:
         return WavLMNet(num_classes=num_classes, mode="multimodal", dropout=dropout)
+    elif model_enum == ModelName.EFFICIENTNET_B0:
+        return EfficientNetSER(num_classes=num_classes, dropout=dropout, freeze_until=5)
     else:
         raise ValueError(f"Unknown model name: {model_name}")
 
