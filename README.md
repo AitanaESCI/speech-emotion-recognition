@@ -115,8 +115,6 @@ ___
 
 ## 4. Experiments
 
-[#4-experiments](#4-experiments)
-
 *Consolidated from the shared team experiment log (Results sheet), all experiments were run collaboratively as a team. Reproduction commands use the unified `train-cli` tool (`train-cli/train.py`), which replaced the earlier notebook-based workflow. Where an experiment predates the unified CLI and its architecture isn't part of the current `ModelName` enum (`simple_cnn`, `cnn_gru`, `cnn_lstm`, `transcript_only`, `gemma_audio`, `wavlm_only`, `wavlm_and_transcript`, `efficientnet_b0`), that's noted explicitly instead of a fabricated command.*
 
 **Shared preprocessing pipeline (applies to every experiment below unless noted):**
