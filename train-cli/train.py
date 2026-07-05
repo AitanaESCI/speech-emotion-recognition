@@ -121,6 +121,7 @@ def _init_modal() -> tuple[modal.App, modal.Function]:
             "wandb",
             "sentence-transformers",
             "transformers",
+            "torchvision",
         )
         .add_local_dir(
             os.path.join(os.path.dirname(os.path.abspath(__file__)), "models"),

@@ -307,7 +307,7 @@ speech that a static spectrogram CNN misses.
 
 **Setup**
 - Architecture: CNN feature extractor + GRU/LSTM head
-- Classes: 4 | Loss: sqrt-weighted CrossEntropy + Focal
+- Classes: 4 | Loss: CrossEntropy
 
 **Results**
 | Metric | Value |
