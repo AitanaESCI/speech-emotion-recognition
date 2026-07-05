@@ -85,7 +85,17 @@ Example of using our CLI tool to train a `cnn_lstm` model for 50 epochs with:
 
 ```bash
 cd train-cli/
-uv run python train.py --model-name cnn_lstm --epochs 50 --dropout 0.1 --pitch-shift-prob 0.3 --enable-spec-augment
+uv run python train.py --model-name simple_cnn --epochs 10 --dropout 0.3 --disable-spec-augment # Experiment 1 — Baseline CNN (9 classes)
+uv run python train.py --model-name simple_cnn --epochs 15 --dropout 0.3 --enable-spec-augment # Experiment 2 — CNN + weighted loss + SpecAugment
+uv run python train.py --model-name simple_cnn --epochs 20 --dropout 0.3 --enable-spec-augment # Experiment 3 — CNN, 4-class merge
+uv run python train.py --model-name efficientnet_b0 --epochs 30 --dropout 0.5 --pitch-shift-prob 0.2 --enable-spec-augment # Experiment 6/7/8 — EfficientNet-B0 (best CNN model)
+uv run python train.py --model-name cnn_gru --epochs 50 --dropout 0.1 --pitch-shift-prob 0.3 --enable-spec-augment # Experiment 9 — CNN + GRU
+uv run python train.py --model-name cnn_lstm --epochs 50 --dropout 0.1 --pitch-shift-prob 0.3 --enable-spec-augment # Experiment 9 — CNN + LSTM
+uv run python train.py --model-name transcript_only --epochs 20 --dropout 0.1 # Experiment 10 — Transcript only (text baseline)
+uv run python train.py --model-name gemma_audio --epochs 15 --dropout 0.1 # Experiment 10 — Gemma Audio
+uv run python train.py --model-name wavlm_only --epochs 15 --dropout 0.1 --batch-size 16 # Experiment 11 — WavLM audio only 
+uv run python train.py --model-name wavlm_and_transcript --epochs 15 --dropout 0.1 --batch-size 16 # Experiment 12 — WavLM + transcript (multimodal)
+
 ```
 
 ### Reproducing our best model (TODO - review)
