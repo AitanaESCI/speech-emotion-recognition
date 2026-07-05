@@ -37,6 +37,7 @@ The script integrates the following core capabilities:
   * `cnn_lstm`: A dual-branch model combining a 3-layer 2D CNN and a bidirectional LSTM.
   * `transcript_only`: A baseline using a frozen `all-MiniLM-L6-v2` SentenceTransformer and trainable MLP head.
   * `gemma_audio`: An audio-only baseline using a frozen `google/gemma-4-E2B` Conformer audio tower and trainable MLP head.
+  * `efficientnet_b0`: EfficientNet-B0 pretrained on ImageNet, first conv adapted for single-channel log-mel spectrograms, with configurable layer freezing.
 * **Hyperparameter Configuration**: Configure hyperparameters via CLI options: `--learning-rate`, `--epochs`, `--batch-size`, `--dropout`, `--pad-mode`, `--seed`, etc.
 * **Reproducibility**: Automatic random seed configuration via `_set_seed()`.
 * **W&B Integration**: Automatic sync to project `Final-UPC-Project`, headless confusion matrix plots, and class-specific validation F1 score tracking (`val_class_f1/<emotion>`).
@@ -71,7 +72,7 @@ This fetches the remote run's outputs, retrieves the checkpoint, and writes it l
 Usage: train.py [OPTIONS]
 
 Options:
-  --model-name [simple_cnn|cnn_gru|cnn_lstm|transcript_only|gemma_audio]
+  --model-name [simple_cnn|cnn_gru|cnn_lstm|transcript_only|gemma_audio|wavlm_only|wavlm_and_transcript|efficientnet_b0]
                                   Name of the model architecture to train.
   --chunks-group-id INTEGER       Chunks group ID for IEMOCAP dataset.
                                   [default: 2]
