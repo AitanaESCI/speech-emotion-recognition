@@ -37,6 +37,8 @@ The script integrates the following core capabilities:
   * `cnn_lstm`: A dual-branch model combining a 3-layer 2D CNN and a bidirectional LSTM.
   * `transcript_only`: A baseline using a frozen `all-MiniLM-L6-v2` SentenceTransformer and trainable MLP head.
   * `gemma_audio`: An audio-only baseline using a frozen `google/gemma-4-E2B` Conformer audio tower and trainable MLP head.
+  * `wavlm_only`: An audio-only model using a fine-tuned `microsoft/wavlm-large` speech model (top 6 layers + layer norm) and trainable MLP head.
+  * `wavlm_and_transcript`: A multimodal model combining fine-tuned `microsoft/wavlm-large` audio representations and precomputed `all-MiniLM-L6-v2` text embeddings.
   * `efficientnet_b0`: EfficientNet-B0 pretrained on ImageNet, first conv adapted for single-channel log-mel spectrograms, with configurable layer freezing.
 * **Hyperparameter Configuration**: Configure hyperparameters via CLI options: `--learning-rate`, `--epochs`, `--batch-size`, `--dropout`, `--pad-mode`, `--seed`, etc.
 * **Reproducibility**: Automatic random seed configuration via `_set_seed()`.

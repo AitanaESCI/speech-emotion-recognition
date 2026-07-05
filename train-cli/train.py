@@ -21,11 +21,11 @@ from torch.utils.data import DataLoader
 
 import wandb
 from models.cnn_rnn import CNNGRU, CNNLSTM
+from models.efficientnet import EfficientNetSER
 from models.gemma_audio import GemmaAudioNet, build_gemma_audio_datasets
 from models.simple_cnn import SimpleCNN
 from models.transcript_only import TranscriptOnlyNet, precompute_transcript_embeddings
 from models.wavlm import WavLMNet, build_wavlm_datasets
-from models.efficientnet import EfficientNetSER
 
 
 INWORLD_EMOTIONS = [
@@ -225,7 +225,7 @@ def _plot_confusion_matrix(cm, class_names):
 @click.option("--n-fft", default=1024, type=int, help="FFT window size.")
 @click.option("--hop-length", default=256, type=int, help="Hop length.")
 @click.option("--win-length", default=512, type=int, help="Window length.")
-@click.option("--batch-size", default=128, type=int, help="Batch size for training/validation.")
+@click.option("--batch-size", default=32, type=int, help="Batch size for training/validation.")
 @click.option("--learning-rate", default=1e-3, type=float, help="Learning rate.")
 @click.option("--epochs", default=10, type=int, help="Number of training epochs.")
 @click.option("--dropout", default=0.0, type=float, help="Dropout probability.")
