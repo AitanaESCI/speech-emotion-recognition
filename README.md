@@ -93,8 +93,8 @@ uv run python train.py --model-name cnn_gru --epochs 50 --dropout 0.1 --pitch-sh
 uv run python train.py --model-name cnn_lstm --epochs 50 --dropout 0.1 --pitch-shift-prob 0.3 --enable-spec-augment # Experiment 9 — CNN + LSTM
 uv run python train.py --model-name transcript_only --epochs 20 --dropout 0.1 # Experiment 10 — Transcript only (text baseline)
 uv run python train.py --model-name gemma_audio --epochs 15 --dropout 0.1 # Experiment 10 — Gemma Audio
-uv run python train.py --model-name wavlm_only --epochs 15 --dropout 0.1 --batch-size 16 # Experiment 11 — WavLM audio only 
-uv run python train.py --model-name wavlm_and_transcript --epochs 15 --dropout 0.1 --batch-size 16 # Experiment 12 — WavLM + transcript (multimodal)
+uv run python train.py --model-name wavlm_only --epochs 15 --dropout 0.1 --batch-size 16 # Experiment 10 — WavLM audio only 
+uv run python train.py --model-name wavlm_and_transcript --epochs 15 --dropout 0.1 --batch-size 16 # Experiment 11 — WavLM + transcript (multimodal)
 
 ```
 
@@ -317,30 +317,9 @@ speech that a static spectrogram CNN misses.
 
 **Conclusions** The dataset was too small for recurrence to help, and aggressive pooling
 before the GRU left too little context to use. It did not beat the plain CNN.
-
 ---
 
-### Experiment 10: Pretrained speech backbones, Wav2Vec2 & HuBERT (audio only)
-
-**Hypothesis**
-A model pretrained on large amounts of speech would transfer richer audio features
-(tone, prosody) than a CNN trained from scratch on spectrograms.
-
-**Setup**
-- Architecture: Wav2Vec2 and HuBERT, partial fine-tuning, raw waveform input
-- Classes: 4 | Loss: soft-label CrossEntropy
-
-**Results**
-| Model | Test Accuracy | Test Macro F1
-|---|---|---|
-| Wav2Vec2 | 0.510 | 0.494 |
-| HuBERT | 0.565 | 0.554 |
-
-**Conclusions**: Both beat the from-scratch CNN and EfficientNet, pretraining on speech (not images) was the biggest lever so far. HuBERT clearly outperformed Wav2Vec2.
-
----
-
-### Experiment 11: WavLM (audio only) 
+### Experiment 10: WavLM (audio only) 
 
 **Hypothesis**
 WavLM, pretrained self-supervised on ~94k hours of speech, would capture tone and prosody
@@ -364,7 +343,7 @@ better than any previous model.
 ---
 
 
-### Experiment 12: WavLM Multimodal (audio + text)
+### Experiment 11: WavLM Multimodal (audio + text)
 
 **Hypothesis**
 Adding the text transcript (what was said) to the audio (how it was said) would give extra
@@ -400,10 +379,8 @@ most of the signal lives in the audio, not the words.
 | 7 | EfficientNet-B0 + frozen layers + pitch shift | 4 | 0.5106 | 0.536 | **0.502** | Overfitting solved |
 | 8 | EfficientNet-B0 + manual weights | 4 | 0.503 | 0.504 | 0.478 | Didn't outperform Exp 7 |
 | 9 | CNN + GRU/LSTM | 4 | - | 0.478 | 0.459 | Too little data |
-| 10 | HuBERT (audio only) | 4 | - | 0.565 | 0.554 | Pretraining helps a lot|
-| 10 | Wav2Vec2 (audio only) | 4 | - | 0.510 | 0.494 | Pretrained speech |
-| 11 | WavLM (audio only) | 4 | - | 0.641 | 0.603 | Best pre trained model|
-| 12 | WavLM multimodal (audio+text) | 4 | - | 0.656 | 0.619 | Text not significant |
+| 10 | WavLM (audio only) | 4 | - | 0.641 | 0.603 | Best pre trained model|
+| 11 | WavLM multimodal (audio+text) | 4 | - | 0.656 | 0.619 | Text not significant |
 
 
 ## 6. Conclusions & Future Work
