@@ -7,7 +7,7 @@
 **Supervisor**: Pol Caselles
 
 ## 🔗 Demo
-- [Hugging Face Space](https://huggingface.co/spaces/aitanadiaz/speech-emotion-recognition) — try the live demo
+- [Hugging Face Space](https://huggingface.co/spaces/aitanadiaz/speech-emotion-recognition) — Live demo
 - [Emo Tuning - Labeling Tool](https://upc-emo-tuning.pages.dev/)
 
 ## 📋 Table of Contents
@@ -50,7 +50,7 @@ Full architectural details and iterations are documented experiment-by-experimen
 ### Repository Structure
 ```
 ├── demo-apps/
-│   ├── (TODO)  # Hugging Face demo app
+│   ├── hf-space  # Hugging Face demo app
 │   └── emo_tuning/  # Data labeling tool
 │
 └── train-cli/
