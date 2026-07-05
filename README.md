@@ -105,7 +105,7 @@ We report the best model in each family:
   dropout 0.5, pitch shift augmentation): Test Acc 0.536, Macro F1 0.502.
 - **Best pretrained model (and final selected model)**, **Experiment 11** (WavLM Large,
   audio only, base frozen, top 6 layers + MLP head fine-tuned): Test Acc 0.641, Macro F1 0.603.
-  WavLM multimodal (audio + text, Experiment 12) scored slightly higher (0.656 / 0.619), but
+  WavLM multimodal (audio + text) scored slightly higher (0.656 / 0.619), but
   the text gain was not statistically significant (p = 0.095), so we keep the simpler
   audio-only model as final.
 
@@ -352,7 +352,7 @@ Adding the text transcript (what was said) to the audio (how it was said) would 
 signal and improve results.
 
 **Setup**
-- Architecture: WavLM audio branch + MiniLM text encoder on the transcript, fused before the classifier head. Same training regime as Experiment 11.
+- Architecture: WavLM audio branch + MiniLM text encoder on the transcript, fused before the classifier head. Same training regime as Experiment 10.
 
 **Results**
 | Metric | Value |
