@@ -50,7 +50,7 @@ Full architectural details and iterations are documented experiment-by-experimen
 ### Repository Structure
 ```
 ├── demo-apps/
-│   ├── hf-space  # Hugging Face demo app
+│   ├── hf_space  # Hugging Face demo app
 │   └── emo_tuning/  # Data labeling tool
 │
 └── train-cli/
