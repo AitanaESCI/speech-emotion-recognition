@@ -7,6 +7,7 @@
 **Supervisor**: Pol Caselles
 
 ## 🔗 Demo
+- [Hugging Face Space](https://huggingface.co/spaces/aitanadiaz/speech-emotion-recognition) - Live demo
 - [Emo Tuning - Labeling Tool](https://upc-emo-tuning.pages.dev/)
 
 ## 📋 Table of Contents
