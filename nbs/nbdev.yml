@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "nbdev-upc-aidl-iemocap-datasets"
+  site-url: "/"
+  description: "Add your description here"
+  repo-branch: main
+  repo-url: ""

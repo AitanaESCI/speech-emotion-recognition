@@ -1,0 +1,44 @@
+[project]
+name = "nbdev-upc-aidl-iemocap-datasets"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Diego Alonso", email = "diego@gofordiego.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "ipython>=7.34.0",
+    "ipywidgets>=7.7.1",
+    "librosa>=0.11.0",
+    "matplotlib>=3.10.0",
+    "pandas>=2.2.2",
+    "pyarrow>=18.1.0",
+    "requests>=2.32.4",
+    "soundfile>=0.13.1",
+    "torch>=2.10.0",
+    "torchaudio>=2.10.0",
+    "tqdm>=4.67.3",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.2.0",
+    "nbdev>=3.0.15",
+]
+
+[build-system]
+requires = ["uv_build>=0.10.2,<0.11.0"]
+build-backend = "uv_build"
+
+[tool.nbdev]
+repo = "nbdev-upc-aidl-iemocap-datasets"
+branch = "main"
+user = "gofordiego"
+author = "Diego Alonso"
+author_email = "diego@gofordiego.com"
+description = "A convenience PyTorch Dataset factory for the IEMOCAP emotional speech dataset."
+path = "nbs"
+lib_name = "nbdev_upc_aidl_iemocap_datasets"
+lib_path = "src/nbdev_upc_aidl_iemocap_datasets"
+copyright = "2026 onwards, Diego Alonso"
