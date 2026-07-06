@@ -414,6 +414,8 @@ uv run python train.py --model-name wavlm_and_transcript --epochs 15 --dropout 0
 - Speaker-independent evaluation is essential for an honest performance estimate and makes this a genuinely harder problem than speaker-dependent benchmarks suggest.
 - Data quality sets a ceiling. Training accuracy (0.75) was only a little above validation accuracy (0.65) on the best model, a small gap, so the model isn't overfitting, the labels themselves are noisy.
 - Multimodality needs a reason. Adding the text transcript did not significantly help. For emotion, the signal lives mostly in the audio (tone/prosody), not the words.
+- A larger sample size for a class doesn't guarantee better performance on it. The intuition would be that a class with more examples is easier for the model to learn, but that wasn't consistently observed, the harder classes weren't simply the smaller ones.
+- The practical stopping criterion for this project wasn't hitting a target metric, it was diminishing returns. Once further techniques and methodologies stopped producing a meaningful Macro-F1 gain, that was the signal the useful levers had been exhausted for this dataset.
 
 **Limitations**
 - Final Macro-F1 (~0.6) shows the model still struggles to separate Neutral and Positive emotions specifically.
