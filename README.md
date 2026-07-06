@@ -2,12 +2,16 @@
 
 **UPC AIDL Final Project**
 
-**Team**: Angelica Tacca Dughetti, Andrea Sanchez, Aitana Diaz, Diego Alonso
+**Team**:
+- Angelica Tacca Dughetti - [angelicataccadughetti@gmail.com](mailto:angelicataccadughetti@gmail.com)
+- Andrea Sanchez - [contactandreasm@gmail.com](mailto:contactandreasm@gmail.com)
+- Aitana Diaz - [aitanadiazbcn@gmail.com](mailto:aitanadiazbcn@gmail.com)
+- Diego Alonso - [dalonsoa@gmail.com](mailto:dalonsoa@gmail.com)
 
-**Supervisor**: Pol Caselles
+**Supervisor**: Pol Caselles - [pcaselles22@gmail.com](mailto:pcaselles22@gmail.com)
 
 ## 🔗 Demo
-- [Hugging Face Space](https://huggingface.co/spaces/angietd/meeting-emotion-demo) - Live demo
+- [Hugging Face Space - Live demo](https://huggingface.co/spaces/angietd/meeting-emotion-demo) 
 - [Emo Tuning - Labeling Tool](https://upc-emo-tuning.pages.dev/)
 
 ## 📋 Table of Contents
