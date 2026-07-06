@@ -10,9 +10,9 @@
 
 **Supervisor**: Pol Caselles - [pcaselles22@gmail.com](mailto:pcaselles22@gmail.com)
 
-## 🔗 Demo
-- [Hugging Face Space - Live demo](https://huggingface.co/spaces/angietd/meeting-emotion-demo) 
-- [Emo Tuning - Labeling Tool](https://upc-emo-tuning.pages.dev/)
+## 🔗 Demo Apps
+- [Hugging Face Space - Live Demo](https://huggingface.co/spaces/angietd/meeting-emotion-demo) 
+- [Emo Tuning - Labeling Tool](demo-apps/emo_tuning/README.md)
 
 ## 📋 Table of Contents
 1. [Motivation](#1-motivation)
@@ -36,23 +36,32 @@ This combines a real audio signal processing challenge (extracting meaningful fe
 
 </p>
 
+
+
 ## 2. Proposal
+
+**Data**
+- Dataset: [IEMOCAP](https://sail.usc.edu/iemocap/), ~10,000 audio clips from 10 actors across 5 sessions
+- Original 9 emotion labels merged into 4 balanced classes: Neutral, Negative, Positive, Sad
+- Speaker-independent train/validation/test split by session, to prevent speaker leakage and ensure the model generalizes to unseen voices
+
+![Original Spectrogram and Audio Player](assets/iemocap.png)
 
 **Architecture**
 
 A CNN-based image classification approach applied to audio: raw waveforms are converted into log-mel spectrograms, which are then fed into a 2D convolutional classifier, first a custom architecture, later a fine-tuned EfficientNet-B0 backbone, and finally a fine-tuned WavLM audio encoder, which became the best-performing and final selected model.
-Full architectural details and iterations are documented category-by-category in [Section 4](#4-experiments).
+Full architectural details and iterations are documented category-by-category in [Section 4 (Experiments)](#4-experiments).
 
-**Data**
-- Dataset: [IEMOCAP](https://sail.usc.edu/iemocap/), ~10,000 audio clips from 10 actors across 5 sessions
-- Original 9 emotion labels merged into 4 balanced classes: Neutral, Negative, Positive, Unclear
-- Speaker-independent train/validation/test split by session, to prevent speaker leakage and ensure the model generalizes to unseen voices
+*Example of mel-spectrogram from audio chunk with transciption and major emotion (n_mels=80, n_fft=1024, hop_length=160, win_length=400).*
 
-**Computational Requirements**
-- Feature extraction: log-mel spectrograms (n_mels=80, n_fft=1024, hop_length=160, win_length=400)
-- Training: single GPU (Google Colab), experiments ranging from 10 to 100 epochs depending on architecture
-- For WavLM, an A100-class GPU is recommended; training still takes several hours
-- Experiment tracking: [Weights & Biases](https://wandb.ai/)
+![mel-spec.png](assets/mel-spec.png)
+
+**Technical Requirements**
+- Training: single GPU (Google Colab T4 TPU / [Modal.com](https://modal.com/)  T4 GPU / Apple Silicon M2+), experiments ranging from 15 to 250 epochs depending on architecture
+- For WavLM a A100 compute power is suggested, but it did run in Apple Silicon and T4 instances with 16 GB of RAM and maximum 32 batch size.
+- Experiment tracking: - Experiment tracking: [Weights & Biases](https://wandb.ai/)
+
+
 
 ## 3. Setup & Reproducibility
 
@@ -62,11 +71,41 @@ Full architectural details and iterations are documented category-by-category in
 │   ├── hf_space/  # Hugging Face demo app
 │   └── emo_tuning/  # Data labeling tool
 │
+├── shared-dataset-loader/
+│   ├── nbdev-upc-aidl-iemocap-datasets/  # git subtree of https://github.com/gofordiego/nbdev-upc-aidl-iemocap-datasets
+│   └── README.md  # Shared dataset loader example usage.
+│
 └── train-cli/
     ├── models/  # Experiments models
     ├── train.py
     └── README.md  # Train CLI instructions.
 ```
+
+### Shared Dataset Loader (included in Train CLI)
+
+A Python package used for creating PyTorch datasets with shared utilities for audio data processing and augmentation from IEMOCAP and External Audio Source datasets.
+
+#### Usage example
+
+```python
+from nbdev_upc_aidl_iemocap_datasets.core import DatasetsFactory
+
+factory = DatasetsFactory(url="https://iemocap-files.plumberslog.com/")
+train_data = factory.build_dataset(
+    partition_type="train",
+    id=2,
+    n_fft=1024,
+    hop_length=160,
+    win_length=400,
+    n_mels=80,
+    pad_mode="windowed_repeat",
+    should_refresh_local_cache=False,
+)
+print("Train chunks: ", len(train_data))
+```
+
+> [!TIP]
+> See more details about this package in the [Shared Dataset Loader - README](shared-dataset-loader/README.md).
 
 ### Train CLI tool
 
@@ -80,25 +119,49 @@ Experiments are tracked on [Weights & Biases](https://wandb.ai/). An option to r
 #### Installation
 ```bash
 cd train-cli/
-# Requires uv package manager: https://docs.astral.sh/uv/
+# Requires uv package manager: https://docs.astral.sh/uv/getting-started/installation/
 uv sync
 ```
 
 #### Running experiments
 
+Note that further down, in [Section 4. Experiments](#4-experiments), we also include the Train CLI command to reproduce each experiment.
+
 ```bash
 cd train-cli/
-uv run python train.py --chunks-group-id 1 --model-name simple_cnn --epochs 10 --dropout 0.3 --disable-spec-augment # Category 1: Baseline CNN (9 classes)
-uv run python train.py --model-name simple_cnn --epochs 15 --dropout 0.3 --enable-spec-augment # Category 1: Baseline CNN + SpecAugment (9 classes)
-uv run python train.py --model-name simple_cnn --epochs 20 --dropout 0.3 --enable-spec-augment # Category 2: 4-class grouping
-uv run python train.py --model-name simple_cnn --epochs 20 --dropout 0.3 --enable-spec-augment # Category 3: Class weights + Focal Loss
-uv run python train.py --model-name simple_cnn --epochs 50 # Category 4: Fixed epoch budget (no early stop)
-uv run python train.py --model-name cnn_gru --epochs 100 # Category 5: CNN + GRU
-uv run python train.py --model-name cnn_gru --epochs 100 --pitch-shift-prob 0.3 --enable-spec-augment # Category 6: SpecAugment + Pitch Shift
-uv run python train.py --model-name efficientnet_b0 --epochs 30 --dropout 0.5 --pitch-shift-prob 0.2 --enable-spec-augment # Category 7: Pretrained backbones, EfficientNet-B0
-uv run python train.py --model-name wavlm_only --epochs 15 --dropout 0.1 --batch-size 16 # Category 7: Pretrained backbones, WavLM audio only
-uv run python train.py --model-name transcript_only --epochs 20 --dropout 0.1 # Category 8: Text only
-uv run python train.py --model-name wavlm_and_transcript --epochs 15 --dropout 0.1 --batch-size 16 # Category 8: WavLM multimodal (audio + text)
+
+# Category 1: Baseline CNN (9 classes)
+uv run python train.py --chunks-group-id 1 --model-name simple_cnn --epochs 10 --dropout 0.3 --disable-spec-augment
+
+# Category 1: Baseline CNN + SpecAugment (9 classes)
+uv run python train.py --model-name simple_cnn --epochs 15 --dropout 0.3 --enable-spec-augment 
+
+# Category 2: 4-class grouping
+uv run python train.py --model-name simple_cnn --epochs 20 --dropout 0.3 --enable-spec-augment 
+
+# Category 3: Class weights + Focal Loss
+uv run python train.py --model-name simple_cnn --epochs 20 --dropout 0.3 --enable-spec-augment 
+
+# Category 4: Fixed epoch budget (no early stop)
+uv run python train.py --model-name simple_cnn --epochs 50
+
+# Category 5: CNN + GRU
+uv run python train.py --model-name cnn_gru --epochs 100
+
+# Category 6: SpecAugment + Pitch Shift
+uv run python train.py --model-name cnn_gru --epochs 100 --pitch-shift-prob 0.3 --enable-spec-augment
+
+# Category 7: Pretrained backbones, EfficientNet-B0
+uv run python train.py --model-name efficientnet_b0 --epochs 30 --dropout 0.5 --pitch-shift-prob 0.2 --enable-spec-augment
+
+# Category 7: Pretrained backbones, WavLM audio only
+uv run python train.py --model-name wavlm_only --epochs 15 --dropout 0.1 --batch-size 16
+
+# Category 8: Text only
+uv run python train.py --model-name transcript_only --epochs 20 --dropout 0.1
+
+# Category 8: WavLM multimodal (audio + text)
+uv run python train.py --model-name wavlm_and_transcript --epochs 15 --dropout 0.1 --batch-size 16
 ```
 
 ### Reproducing the best model
@@ -119,6 +182,27 @@ Experiments are grouped into the 8 categories below, each answering the question
 - Re-audited ground truth, clips flagged as low-quality by Whisper + Inworld were excluded
 - Speaker-independent evaluation, split by session, to avoid speaker leakage between train/val/test
 - **Metric of record: Macro-F1** (not raw accuracy), accuracy and per-setup Val/Test Acc are reported alongside for reference, but Macro-F1 is what results are compared against
+
+```python
+    IEMOCAP_SPEAKERS_PARTITIONS = {
+        "train": [
+            "Ses03__F",  # Recording Session 3 (Female Actor)
+            "Ses03__M",  # Recording Session 3 (Male Actor)
+            "Ses04__F",
+            "Ses04__M",
+            "Ses05__F",
+            "Ses05__M",
+        ],
+        "validation": [
+            "Ses02__F",
+            "Ses02__M",
+        ],
+        "test": [
+            "Ses01__F",
+            "Ses01__M",
+        ],
+    }
+```
 
 ### Category 1: Baseline CNN + SpecAug
 
@@ -157,7 +241,7 @@ uv run python train.py --model-name simple_cnn --epochs 15 --dropout 0.3 --enabl
 
 **Hypothesis**
 
-Grouping the original 9 IEMOCAP emotions into 4 broader, better-balanced classes (Neutral, Negative, Positive, Unclear) was tested as a more structural fix for label ambiguity and imbalance.
+Grouping the original 9 IEMOCAP emotions into 4 broader, better-balanced classes (Neutral, Negative, Positive, Sad) was tested as a more structural fix for label ambiguity and imbalance.
 
 **Setup**
 
@@ -293,6 +377,10 @@ uv run python train.py --model-name cnn_gru --epochs 100
 
 The overfitting seen with recurrent architectures raised a follow-up question: with a dataset as limited as IEMOCAP, would augmenting the spectrogram (SpecAugment) and randomizing pitch improve generalization directly?
 
+When [SpecAugment](https://research.google/blog/specaugment-a-new-data-augmentation-method-for-automatic-speech-recognition/) is activated, a different mel-spectrogram is generated for each chunk in each epoch with random frequency and time masking. The same goes for pitch shift going 3 tones up or down in tone depending on the probability parameter.
+
+![mel-spec.png](assets/spec-augment-pitch-shift.png)
+
 **Setup**
 
 A transversal ablation rather than a standalone model, isolated by comparing paired runs of the same architecture with only the augmentation flags changed:
@@ -425,3 +513,43 @@ uv run python train.py --model-name wavlm_and_transcript --epochs 15 --dropout 0
 **Future Work**
 - Fix and properly evaluate the speaker diarization component for multi-speaker meeting audio.
 - Collect or fine-tune on more naturalistic (non-acted) emotional speech data.
+
+
+## Appendix: Analysis with Real-World Meetings Audio
+
+To evaluate and improve our model's performance on naturalistic conversations, we extended our training pipeline with real-world meeting audio collected from YouTube.
+
+![Real-World Audio vs IEMOCAP Dataset](assets/real-world-audio.png)
+
+We downloaded, processed, and syntactically labeled a new dataset consisting of **8.26 hours** of real-world meeting audio, comparing it directly to the acted emotions in the **12.25 hours** IEMOCAP dataset. Labeling was performed using the [Inworld.AI Voice Profile model](https://docs.inworld.ai/stt/voice-profiles).
+
+> [!IMPORTANT]
+> **Key Insight: Real-Life Distribution Shift**
+> As shown in the distribution charts above, real-world meetings are overwhelmingly **Neutral** (the blue bar is dominant in the Non-IEMOCAP datasets), whereas IEMOCAP contains a highly-acted, more balanced distribution of emotions (like Sad and Angry). Furthermore, emotions in real life are much more subtle; for example, clips tagged as "angry" are often just excited or spoken with a foreign accent (e.g., German) rather than showing actual anger.
+
+### Performance Comparison
+
+We compared two training runs of the `simple_cnn` model:
+1. **Group 6**: IEMOCAP-only audio chunks.
+2. **Group 8**: Combined IEMOCAP and Real-World Meetings dataset.
+
+| Dataset Group | Description | Test Accuracy | Weighted F1 | Positive F1 | Negative F1 | Neutral F1 | Sad F1 |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Group 6** | IEMOCAP Only | 50.9% | 0.503 | 0.468 | 0.586 | 0.443 | 0.512 |
+| **Group 8** | IEMOCAP + Real-World Meetings | **53.4%** | **0.533** | 0.409 | 0.569 | **0.575** | 0.507 |
+
+> [!TIP]
+> **Why Group 8 performed better:**
+> Introducing real-world meeting data significantly improved the model's ability to classify **Neutral** speech (Neutral F1 went from **0.443 to 0.575**). Because real-world meetings are predominantly neutral, adding this dataset helped correct the model's bias towards acted emotional states.
+
+### Reproducing these runs
+
+Run the training commands below to reproduce these experimental results:
+
+```bash
+# Train on IEMOCAP-only chunks (Group 6)
+uv run python train.py --model-name simple_cnn --chunks-group-id 6 --epochs 100 --pitch-shift-prob 0.3 --dropout 0.1 --disable-spec-augment
+
+# Train on Combined IEMOCAP & Real-World chunks (Group 8)
+uv run python train.py --model-name simple_cnn --chunks-group-id 8 --epochs 100 --pitch-shift-prob 0.3 --dropout 0.1 --disable-spec-augment
+```
