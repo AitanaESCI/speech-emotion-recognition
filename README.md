@@ -1,4 +1,4 @@
-# Speech Emotion Recognition - Meeting Audio Classifier
+# Speech Emotion Recognition, Meeting Audio Classifier
 
 **UPC AIDL Final Project**
 
