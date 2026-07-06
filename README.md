@@ -6,7 +6,7 @@
 - Angelica Tacca Dughetti - [angelicataccadughetti@gmail.com](mailto:angelicataccadughetti@gmail.com)
 - Andrea Sanchez - [contactandreasm@gmail.com](mailto:contactandreasm@gmail.com)
 - Aitana Diaz - [aitanadiazbcn@gmail.com](mailto:aitanadiazbcn@gmail.com)
-- Diego Alonso - [dalonsoa@gmail.com](mailto:dalonsoa@gmail.com)
+- Diego Alonso - [msg2diego@icloud.com](mailto:msg2diego@icloud.com)
 
 **Supervisor**: Pol Caselles - [pcaselles22@gmail.com](mailto:pcaselles22@gmail.com)
 
