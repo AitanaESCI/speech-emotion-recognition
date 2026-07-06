@@ -93,7 +93,7 @@ uv run python train.py --model-name simple_cnn --epochs 15 --dropout 0.3 --enabl
 uv run python train.py --model-name simple_cnn --epochs 20 --dropout 0.3 --enable-spec-augment # Category 2: 4-class grouping
 uv run python train.py --model-name simple_cnn --epochs 20 --dropout 0.3 --enable-spec-augment # Category 3: Class weights + Focal Loss
 uv run python train.py --model-name simple_cnn --epochs 50 # Category 4: Fixed epoch budget (no early stop)
-uv run python train.py --model-name cnn_gru --epochs 100 # Category 5: CNN + GRU/LSTM
+uv run python train.py --model-name cnn_gru --epochs 100 # Category 5: CNN + GRU
 uv run python train.py --model-name cnn_gru --epochs 100 --pitch-shift-prob 0.3 --enable-spec-augment # Category 6: SpecAugment + Pitch Shift
 uv run python train.py --model-name efficientnet_b0 --epochs 30 --dropout 0.5 --pitch-shift-prob 0.2 --enable-spec-augment # Category 7: Pretrained backbones, EfficientNet-B0
 uv run python train.py --model-name wavlm_only --epochs 15 --dropout 0.1 --batch-size 16 # Category 7: Pretrained backbones, WavLM audio only
@@ -255,11 +255,11 @@ uv run python train.py --model-name simple_cnn --epochs 20 --dropout 0.1 --enabl
 
 ---
 
-### Category 5: CNN + GRU/LSTM
+### Category 5: CNN + GRU
 
 **Hypothesis**
 
-Adding a recurrent layer (GRU or LSTM) on top of the CNN's feature maps was tested to see whether it captures the temporal, prosodic dynamics of speech better than a purely convolutional model.
+Adding a recurrent layer (GRU) on top of the CNN's feature maps was tested to see whether it captures the temporal, prosodic dynamics of speech better than a purely convolutional model.
 
 **Setup**
 
@@ -395,7 +395,7 @@ uv run python train.py --model-name wavlm_and_transcript --epochs 15 --dropout 0
 | 2 | 4-class grouping | 0.49 | 0.451 |
 | 3 | Class weights + Focal Loss | 0.504 | 0.514 |
 | 4 | Fixed epoch budget (no early stop) | 0.52 | 0.487 |
-| 5 | CNN + GRU/LSTM | 0.478 | 0.459 |
+| 5 | CNN + GRU| 0.478 | 0.459 |
 | 6 | SpecAugment + Pitch Shift | 0.52 | 0.465 |
 | 7 | Pretrained backbones (EfficientNet-B0 & WavLM) | 0.641 | 0.603 |
 | 8 | Text Only + Multimodal | 0.656 | 0.619 |
